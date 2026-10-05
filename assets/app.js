@@ -62,35 +62,35 @@
   function mountAssistant(){
     const toggle=document.createElement('button');toggle.className='ai-launcher';toggle.type='button';toggle.setAttribute('aria-label','افتحوا مساعد جلسة');toggle.setAttribute('aria-expanded','false');toggle.setAttribute('aria-controls','jalsa-ai-panel');toggle.innerHTML='<span aria-hidden="true">ج</span>';
     const panel=document.createElement('aside');panel.className='ai-panel';panel.id='jalsa-ai-panel';panel.setAttribute('aria-label','محادثة مساعد جلسة');panel.setAttribute('aria-hidden','true');
-    panel.innerHTML='<div class="ai-panel-head"><span class="ai-panel-icon">ج</span><div class="ai-panel-title"><b>مساعد جلسة</b><small>للفكرة، السؤال، أو ترتيب وقتكم</small></div><button class="ai-clear" type="button">محادثة جديدة</button><button class="ai-close" type="button" aria-label="إغلاق المساعد">×</button></div><div class="ai-messages" aria-live="polite"></div><div class="ai-suggestions"><button type="button" data-ask="رتب لنا ربع ساعة بعد العشاء">ربع ساعة بعد العشاء</button><button type="button" data-ask="اقترح نشاطًا يشارك فيه الصغار والكبار">نشاط للجميع</button></div><form class="ai-composer"><label class="visually-hidden" for="jalsa-ai-input">اكتبوا طلبكم لمساعد جلسة</label><textarea id="jalsa-ai-input" rows="1" maxlength="1200" placeholder="اسألوا أو اكتبوا فكرتكم…" required></textarea><button class="ai-send" type="submit" aria-label="إرسال">↑</button></form><p class="ai-privacy">تُستخدم رسالتك لإعداد الرد عبر مزود الخدمة. لا تكتب معلومات خاصة.</p>';
+    panel.innerHTML='<div class="ai-panel-head"><span class="ai-panel-icon">ج</span><div class="ai-panel-title"><b>مساعد جلسة</b><small>اختاروا اقتراحًا جاهزًا للبدء</small></div><button class="ai-clear" type="button">محادثة جديدة</button><button class="ai-close" type="button" aria-label="إغلاق المساعد">×</button></div><div class="ai-messages" aria-live="polite"></div><div class="ai-suggestions"><button type="button" data-choice="after-dinner">رتب لنا ربع ساعة بعد العشاء</button><button type="button" data-choice="all-ages">اقترح نشاطًا يشارك فيه الصغار والكبار</button></div><p class="ai-privacy">ردود جاهزة داخل الموقع؛ ما تنرسل رسائلكم لأي خدمة خارجية.</p>';
     document.body.append(toggle,panel);
-    const messageList=panel.querySelector('.ai-messages'), form=panel.querySelector('form'), input=panel.querySelector('textarea'), send=panel.querySelector('.ai-send');
-    let history=[],busy=false;
+    const messageList=panel.querySelector('.ai-messages');
+    const choices={
+      'after-dinner':{
+        prompt:'رتب لنا ربع ساعة بعد العشاء',
+        answer:'أكيد، جربوا هالخطة لمدة ١٥ دقيقة:\n\n• دقيقتان: حطوا الجوالات جانبًا وخلو كل شخص يختار مكانه.\n• ٣ دقائق: كل واحد يشارك بشيء حلو صار له اليوم.\n• ٧ دقائق: اختاروا سؤالًا واحدًا وتبادلوا الإجابات، مثل: وش شيء ودك تتعلمه؟\n• ٣ دقائق: اتفقوا على شيء بسيط تسوونه سوا بكرة.\n\nاللي ما يبي يجاوب يقدر يسمع أو يتجاوز دوره.'
+      },
+      'all-ages':{
+        prompt:'اقترح نشاطًا يشارك فيه الصغار والكبار',
+        answer:'جربوا لعبة «خمن الشيء»؛ ما تحتاج أدوات وتناسب أعمارًا مختلفة:\n\n١. يختار شخص غرضًا موجودًا في الغرفة من غير ما يذكر اسمه.\n٢. يعطي تلميحًا واحدًا كل مرة، مثل لونه أو استخدامه.\n٣. البقية يخمنون، وبعدها يختار شخصًا ثانيًا غرضًا جديدًا.\n\nخلوا التلميحات سهلة للصغار، وممكن لأي شخص يمرر دوره.'
+      }
+    };
     function addMessage(role,text,typing=false){
       const item=document.createElement('div');item.className=`ai-message${role==='user'?' user':''}${typing?' ai-typing':''}`;
       const who=document.createElement('small');who.textContent=role==='user'?'أنتم':'مساعد جلسة';
       const body=document.createElement('p');body.textContent=text;item.append(who,body);messageList.append(item);messageList.scrollTop=messageList.scrollHeight;return item;
     }
-    function welcome(){addMessage('assistant','أهلًا! اسألوني عن أي شيء، أو قولوا لي وش ودكم تسوون سوا.');}
-    function setOpen(open){panel.classList.toggle('open',open);panel.setAttribute('aria-hidden',String(!open));toggle.setAttribute('aria-expanded',String(open));toggle.setAttribute('aria-label',open?'إغلاق مساعد جلسة':'افتحوا مساعد جلسة');if(open)input.focus();}
-    async function ask(raw){
-      const prompt=raw.trim();if(!prompt||busy)return;
-      input.value='';input.style.height='auto';addMessage('user',prompt);history.push({role:'user',content:prompt});
-      busy=true;input.disabled=true;send.disabled=true;const pending=addMessage('assistant','لحظة وأجهز لكم الرد…',true);
-      try{
-        const response=await fetch('./api/guide',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:history.slice(-8)})});
-        const data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(data.error||'ما قدرنا نجهز اقتراحًا الآن.');
-        pending.remove();history.push({role:'assistant',content:data.answer});addMessage('assistant',data.answer);
-      }catch(error){
-        pending.remove();const message=error instanceof TypeError?'لتشغيل المساعد، افتحوا الموقع عبر Vercel مع إضافة OPENAI_API_KEY إلى متغيرات البيئة.':error.message;addMessage('assistant',message);
-      }finally{busy=false;input.disabled=false;send.disabled=false;input.focus();}
+    function welcome(){addMessage('assistant','أهلًا! اختاروا واحدًا من الاقتراحين، وأعطيكم خطوات جاهزة.');}
+    function setOpen(open){panel.classList.toggle('open',open);panel.setAttribute('aria-hidden',String(!open));toggle.setAttribute('aria-expanded',String(open));toggle.setAttribute('aria-label',open?'إغلاق مساعد جلسة':'افتحوا مساعد جلسة');}
+    function choose(choice){
+      const item=choices[choice];if(!item)return;
+      addMessage('user',item.prompt);
+      addMessage('assistant',item.answer);
     }
     toggle.addEventListener('click',()=>setOpen(!panel.classList.contains('open')));
     panel.querySelector('.ai-close').addEventListener('click',()=>setOpen(false));
-    panel.querySelector('.ai-clear').addEventListener('click',()=>{if(busy)return;history=[];messageList.replaceChildren();welcome();input.value='';});
-    panel.querySelectorAll('[data-ask]').forEach(button=>button.addEventListener('click',()=>ask(button.dataset.ask)));
-    form.addEventListener('submit',event=>{event.preventDefault();ask(input.value);});
-    input.addEventListener('input',()=>{input.style.height='auto';input.style.height=`${Math.min(input.scrollHeight,90)}px`;});
+    panel.querySelector('.ai-clear').addEventListener('click',()=>{messageList.replaceChildren();welcome();});
+    panel.querySelectorAll('[data-choice]').forEach(button=>button.addEventListener('click',()=>choose(button.dataset.choice)));
     document.addEventListener('keydown',event=>{if(event.key==='Escape'&&panel.classList.contains('open'))setOpen(false);});
     welcome();
   }
