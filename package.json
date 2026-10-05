@@ -1,0 +1,7 @@
+{
+  "name": "jalsa-family-session",
+  "private": true,
+  "scripts": {
+    "dev": "vercel dev"
+  }
+}
